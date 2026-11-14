@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Night Watch: Outpost Zero</title>
+<style>
+:root{--bg:#000;--fg:#dbe4f5;--btn:#1a2235;--line:#3d4a70;--amber:#ffb84a;color-scheme:dark}
+:root:not([data-theme="light"]){--bg:#000}
+html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--fg);font-family:ui-monospace,monospace;user-select:none;-webkit-user-select:none}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#0a0d1a;display:block;touch-action:none}
+#pad{display:none;width:100%;max-width:420px;justify-content:space-between;align-items:center;padding:10px 18px 4px;box-sizing:border-box}
+.touch #pad{display:flex}#pad small{display:block;font-size:8px;margin-top:2px;opacity:.85}@media (orientation:landscape) and (max-height:520px){.touch #pad{position:fixed;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-width:none;padding:0 18px;pointer-events:none}.touch #pad button{pointer-events:auto;opacity:.85}}
+#dp{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:3px}
+#dp button:nth-child(1){grid-area:1/2}#dp button:nth-child(2){grid-area:2/1}#dp button:nth-child(3){grid-area:2/3}#dp button:nth-child(4){grid-area:3/2}
+#ab{display:flex;gap:14px}
+#pad button{background:var(--btn);color:var(--fg);border:2px solid var(--line);border-radius:10px;font:16px ui-monospace,monospace;touch-action:manipulation;min-width:52px;min-height:52px}
+#ab button{border-radius:50%;width:70px;height:70px;font-size:18px;color:var(--amber);border-color:var(--amber)}
+#pad button:active{background:#2d3957}
+#rep{display:none}@media print{canvas,#pad{display:none!important}#rep{display:block;color:#000;background:#fff;font:15px Georgia,serif;padding:24px}html,body{overflow:visible;height:auto;background:#fff}}
+</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#05070d"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="icon" href="icon.svg">
+<style>@font-face{font-family:'Press Start 2P';src:url(fonts/press-start-2p.woff2) format('woff2');font-display:swap}</style></head><body>
+<canvas id="c" aria-label="Night Watch: Outpost Zero game"></canvas><div id="rep"></div>
+<div id="pad"><div id="dp"><button data-k="u" aria-label="Up">▲</button><button data-k="l" aria-label="Left">◀</button><button data-k="r" aria-label="Right">▶</button><button data-k="d" aria-label="Down">▼</button></div>
+<div id="ab"><button data-k="b" aria-label="X back">X<small>BACK</small></button><button data-k="a" aria-label="Z interact">Z<small>INTERACT</small></button></div></div><input type="file" id="imp" accept="application/json,.json" hidden>
+<script>
+(()=>{
+const W=240,H=160,T=16,cv=document.getElementById('c'),g=cv.getContext('2d');
+cv.width=W;cv.height=H;
+function fit(){const p=document.getElementById('pad');const land=innerWidth>innerHeight&&innerHeight<520,ph=getComputedStyle(p).display!=='none'&&!land?p.offsetHeight+6:0;
+ const s=Math.max(1,Math.floor(Math.min(innerWidth/W,(innerHeight-ph-6)/H)));cv.style.width=W*s+'px';cv.style.height=H*s+'px'}
+const isT=matchMedia('(pointer:coarse)').matches||(navigator.maxTouchPoints>0&&!matchMedia('(hover:hover)').matches);if(isT)document.body.classList.add('touch');addEventListener('touchstart',()=>{if(!document.body.classList.contains('touch')){document.body.classList.add('touch');fit()}},{once:true,passive:true});addEventListener('resize',fit);fit();
+// ---------- audio ----------
+let AC=null,muted=false;
+function blip(f=440,d=.05,ty='square',v=.035){if(muted)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),a=AC.createGain(),t=AC.currentTime;o.type=ty;o.frequency.value=f;a.gain.setValueAtTime(v,t);a.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(a);a.connect(AC.destination);o.start(t);o.stop(t+d)}catch(e){}}
+// ---------- helpers ----------
+const C={bg:'#0a0d1a',reg:'#59627a',sp:'#46506a',lt:'#7a86a3',wall:'#2b3550',wh:'#3d4a70',fl:'#1c2236',am:'#ffb84a',cy:'#5ed3ff',rd:'#ff6b6b',gr:'#62d68f',wt:'#dbe4f5',dk:'#05070d'};
+const hash=(a,b)=>((a*73856093)^(b*19349663))>>>0;
+const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
+function mb(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function R(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h)}
+function TX(s,x,y,c=C.wt,sz=8,al='left'){g.font=sz+'px "Press Start 2P",monospace';g.textBaseline='top';g.textAlign=al;g.fillStyle=c;g.fillText(s,Math.round(x),Math.round(y))}
+function disc(cx,cy,r,c){g.fillStyle=c;for(let y=-r;y<=r;y++){const w=Math.floor(Math.sqrt(r*r-y*y));g.fillRect(cx-w,cy+y,w*2,1)}}
+function tri(x,y,c=C.am,down=false){g.fillStyle=c;for(let i=0;i<4;i++){down?g.fillRect(x+i,y+i,7-i*2,1):g.fillRect(x+i,y-3+i*0,1,0)}
+ if(!down){for(let i=0;i<4;i++)g.fillRect(x+i,y+i,1,7-i*2)}}
+function bar(x,y,w,v,c){R(x,y,w,4,'#05070d');R(x+1,y+1,Math.round((w-2)*v/100),2,c||(v>50?C.gr:v>25?C.am:C.rd))}
+function wrap(s,n=26){const w=s.split(' ');const L=[];let c='';for(const x of w){if((c+' '+x).trim().length>n){L.push(c);c=x}else c=(c+' '+x).trim()}if(c)L.push(c);return L}
+function pages(a){const P=[];for(const s of a){const L=wrap(s);for(let i=0;i<L.length;i+=3)P.push(L.slice(i,i+3))}return P}
+// ---------- state ----------
+const fresh=()=>({night:1,p:78,a:78,s:60,safety:0,honesty:0,curious:0,queue:[],talked:{},seen:{},dose:0});
+function fg(){return S.seen||(S.seen={})}
+let S=fresh(),scene='title',t0=0,menu=0,dlg=null,tr=null,flash=false,floats=[],held={u:0,d:0,l:0,r:0};
+let dayT=0;const DAY=48;let foot=[],motes=[],idleT=0,k=null,kmenu=0,last=0;
+for(let i=0;i<24;i++)motes.push({x:Math.random()*W,y:Math.random()*H,v:2+Math.random()*5});
+const stars=[];for(let i=0;i<70;i++)stars.push({x:Math.random()*W,y:Math.random()*110,p:Math.random()*6,l:1+(i%3)});
+function save(){try{localStorage.setItem('nw-save',JSON.stringify({v:2,at:Date.now(),S}));return 1}catch(e){return 0}}
+function load(){try{const v=JSON.parse(localStorage.getItem('nw-save')||'null');if(!v)return null;const q=v.S||v;if(typeof q.night!=='number')return null;return Object.assign(fresh(),q)}catch(e){return null}}
+// ---------- field guide + case files ----------
+const CASES=[null,['APOLLO 17 (1972)','Lunar dust clogged suits and irritated the crew. Dust control at the airlock matters.','NASA'],['ARTEMIS I (2022)','Orion flew with instrumented mannequins to measure radiation on a trip around the Moon.','NASA'],['AUGUST 1972 STORM','A major solar storm hit between Apollo 16 and 17, when no crew was in transit. Shelter timing matters.','NASA'],['OPPORTUNITY (2018)','A global Mars dust storm blocked sunlight and the rover mission ended. Power starvation is real.','NASA'],['CHANDRAYAAN-3 (2023)','India\'s lander worked through one lunar day, then went dormant in the cold night.','ISRO'],['CHANGE-4 (2019)','The far-side lander used a radioisotope heater to get through the cold nights.','CNSA'],['ISS SOYUZ LEAK (2018)','A tiny hole caused a slow pressure drop. Engineers read sensor trends to find it.','NASA'],['APOLLO 13 (1970)','An oxygen tank failed. The crew rationed power and fixed a CO2 scrubber mismatch.','NASA'],['MOXIE (2021+)','An instrument on Perseverance made oxygen from Martian CO2.','NASA']];
+const FG=[['MOONDUST','Regolith: sharp, sticky grit. It gets into everything.','.'],['ROCK','Boulders hide crater shadows. Cold rock stays cold for weeks.','R'],['SOLAR PANEL','Makes power from sunlight. At night it makes zero.','S'],['BATTERY BANK','Stores power for the night. Heaters and cameras drain it.','B'],['AIRLOCK','A door between vacuum and air. Every use costs air.','D'],['HAB FLOOR','Inside, air and warmth are the real treasure.','f'],['CREW','People are the mission. Keep talking to them.','']];
+const allG=()=>FG.map(x=>x[0]).concat(INC.map(x=>x[0]),CASES.slice(1).map(x=>x[0]));
+function entry(n){const f=FG.find(x=>x[0]===n);if(f)return[f[1],'GAME GUIDE'];const ic=INC.find(x=>x[0]===n);if(ic)return[ic[3],'GAME LESSON'];const c=CASES.find(x=>x&&x[0]===n);return[c[1],'Src: '+c[2]]}
+// ---------- map ----------
+const MAP=["..R...SSSSS..R.","...............","..BB.#######.R.","..BB.#fffCf#...",".....#fffff#...",".....#fffff#...",".....###D###...","...............",".R.....R......R","..............."];
+const SOLID='#SBRC';
+const CREW=[
+ {n:'ASHA',col:'#ff8a5b',c:7,r:4,b:[6,3,8,5],w:1},
+ {n:'RAVI',col:'#5ed3ff',c:9,r:5,b:[8,4,10,5],w:1},
+ {n:'MEI',col:'#62d68f',c:3,r:8,b:[1,7,13,9],w:1},
+ {n:'TOMAS',col:'#c792ff',c:10,r:4,b:null,w:0,sleep:1}];
+function lines(n){const q=S.night;
+ if(n.n==='ASHA')return S.p<45?["Power's getting thin. I stopped charging my tablet. That's love.","The battery bank hums flat when it's cold. Don't tell it I said that."]:["Fourteen nights. I've named every crater out there. That one's Gary.","Batteries only. No sunlight for two weeks. I check them like a nervous parent."];
+ if(n.n==='RAVI')return S.s<40?["The east wall of regolith is thin. I can feel it. Probably.","My dose badge ticks up when we skip the shelter. It never forgives."]:["Moondust smells like burnt matches. Don't ask how I know.","Radiation can fool our sensors. I always check two instruments."];
+ if(n.n==='MEI')return["I do rover laps to stay awake. The rover doesn't need it. I do.","Out there it's about minus 170. My coffee froze mid-sip. Never again."];
+ if(q>=2&&!S.talked.speak){S.talked.speak=1;S.honesty++;return["Oh! I'm awake! Totally awake.","Can I tell you something? My left glove leaks dust. I didn't want to bother anyone.","Thank you for listening. Speaking up matters, even for small things. (HONESTY +1)"]}
+ return["...mm... five more minutes...","Zzz..."]}
+// ---------- world ----------
+const pl={c:8,r:7,tc:8,tr:7,mv:0,dir:'d',fr:0,bump:0};
+const D={u:[0,-1],d:[0,1],l:[-1,0],r:[1,0]};
+function solid(c,r,self){if(c<0||r<0||c>=15||r>=10)return true;if(SOLID.includes(MAP[r][c]))return true;
+ if(CREW.some(n=>n!==self&&((n.c===c&&n.r===r)||(n.tc===c&&n.tr===r))))return true;
+ if(self&&((pl.c===c&&pl.r===r)||(pl.tc===c&&pl.tr===r)))return true;return false}
+function startDay(){dayT=0;nextInc=9+Math.random()*14;incDone=0;foot=[];pl.c=pl.tc=8;pl.r=pl.tr=7;pl.mv=0;pl.dir='u';idleT=0;
+ CREW.forEach((n,i)=>{n.tc=n.c;n.tr=n.r;n.t=1;n.nt=1+Math.random()*2});scene='world';save()}
+function talk(n){S.talked[n.n]=1;fg()['CREW']=1;S.curious=Object.keys(S.talked).length;const L=lines(n);const pick=L[(S.night+n.n.length)%L.length];
+ n.dir={u:'d',d:'u',l:'r',r:'l'}[pl.dir];say(n.sleep&&L.length>2&&!S.talked.speakDone?L:[pick],null,n.n);if(L.length>2)S.talked.speakDone=1}
+function interact(){const[dx,dy]=D[pl.dir],c=pl.c+dx,r=pl.r+dy;
+ const n=CREW.find(n=>n.c===c&&n.r===r);if(n)return talk(n);
+ if(MAP[r]&&MAP[r][c]==='C')return say([`Night console. Once the watch starts, the sun is gone and so is the easy part.`],()=>ask(`Start the night watch now?`,()=>startNight(),null),'CONSOLE');
+ const ch=MAP[r]&&MAP[r][c];const e=FG.find(x=>x[2]&&x[2]===ch);if(e){const sn=fg();if(!sn[e[0]]){sn[e[0]]=1;S.curious++;blip(1200,.12,'sine');return say(['SCAN: '+e[0],e[1],'Added to FIELD GUIDE.'],null,'SCANNER')}return say([e[1]])}
+ say(["Just moondust. It gets everywhere."])}
+function updWorld(dt){if(yn||scene!=='world')return;dayT+=dt;idleT+=dt;if(!incDone&&dayT>nextInc&&!dlg&&!tr){incDone=1;triggerInc()}
+ if(!dlg&&!tr){
+ if(!pl.mv){const d=['u','d','l','r'].find(x=>held[x]);if(d){pl.dir=d;idleT=0;const[dx,dy]=D[d],nc=pl.c+dx,nr=pl.r+dy;
+   if(!solid(nc,nr,null)){pl.tc=nc;pl.tr=nr;pl.mv=.001;if(MAP[pl.r][pl.c]==='.'&&foot.length<90)foot.push({x:pl.c*T+4+Math.random()*6,y:pl.r*T+10})}else if(!pl.bump){pl.bump=.14;blip(110,.05,'triangle')}}}
+ else{pl.mv+=dt*7.5;if(pl.mv>=1){pl.c=pl.tc;pl.r=pl.tr;pl.mv=0;pl.fr^=1;blip(pl.fr?180:150,.03,'triangle',.02);for(let i=0;i<3;i++)puffs.push({x:pl.c*T+8+Math.random()*4,y:pl.r*T+14,vx:(Math.random()-.5)*14,vy:-4-Math.random()*6,l:.5})}}
+ pl.bump=Math.max(0,pl.bump-dt);
+ if(idleT>6&&Math.floor(idleT*1.2)%3===0)pl.dir=['d','l','d','r'][Math.floor(idleT*1.2/3)%4];
+ CREW.forEach(n=>{if(!n.w)return;n.nt-=dt;if(n.t<1){n.t+=dt*5;if(n.t>=1){n.c=n.tc;n.r=n.tr}}
+  else if(n.nt<=0){n.nt=1.5+Math.random()*2.5;const d=['u','d','l','r'][Math.floor(Math.random()*4)],[dx,dy]=D[d],c=n.c+dx,r=n.r+dy;n.dir=d;
+   if(c>=n.b[0]&&c<=n.b[2]&&r>=n.b[1]&&r<=n.b[3]&&!solid(c,r,n)){n.tc=c;n.tr=r;n.t=0}}});
+ if(dayT>=DAY){say(["The sun slips behind the ridge. Solar power: zero.","Lunar night. About minus 170 degrees out there. Time for the watch."],()=>ask(`Sun is gone. Switch the base to NIGHT WATCH now? Radio check first.`,()=>startNight(),()=>{dayT=DAY-18;say([`Okay. 18 more seconds. The cold arrives either way.`],null,'RADIO')}),'EARTH CLOCK')}}
+}
+const puffs=[];let shake=0;
+function roverDraw(){const x=((t0*16)%290)-34,y=146,s=Math.floor(t0*10)&1;R(x+2,y+11,24,2,'#00000055');R(x,y+3,26,7,'#8a94ac');R(x+2,y+3,22,2,'#b4bdd2');R(x+15,y-1,9,5,'#5ed3ff');R(x+16,y,6,3,'#10283f');R(x+4,y-2,2,5,'#6a7490');R(x+26,y+5,2,2,Math.floor(t0*3)%2?C.am:'#7a5a1a');[x+3,x+19].forEach(wx=>{disc(wx+3,y+11,3,'#161a28');R(wx+(s?1:3),y+10,3,1,'#7a86a3')})}
+function person2(px,py,col,dir,fr,sleep){const x=Math.round(px)+3,y=Math.round(py)+1,w=fr&1;R(x-1,y+13,12,2,'#00000055');
+ if(sleep){R(x-3,y+8,15,6,'#2a3048');R(x-2,y+6,10,6,col);R(x-2,y+6,10,2,'#ffffff33');R(x+7,y+4,6,6,C.wt);R(x+8,y+6,4,2,'#10283f');TX('z',x+10,y-4-Math.sin(t0*3)*2,C.cy,8);TX('z',x+15,y-9-Math.sin(t0*3+1)*2,C.cy,8);return}
+ R(x+1,y+11+(w?1:0),3,3,'#1a2036');R(x+6,y+11+(w?0:1),3,3,'#1a2036');R(x+1,y+14+(w?1:0),3,1,'#0b0f1c');R(x+6,y+14+(w?0:1),3,1,'#0b0f1c');
+ R(x,y+5,10,7,col);R(x,y+5,10,2,'#ffffff30');R(x,y+10,10,2,'#00000035');
+ if(dir==='u'){R(x+1,y+6,8,5,'#cfd6e6');R(x+1,y+10,8,1,'#8a94ac')}else R(x+4,y+7,2,2,Math.floor(t0*2)%2?C.am:'#7a5a1a');
+ R(x-1,y+6+(w?1:0),2,4,col);R(x+9,y+6+(w?0:1),2,4,col);
+ R(x+1,y-1,8,1,C.wt);R(x,y,10,6,C.wt);R(x+8,y+1,2,5,'#aeb9d2');R(x,y+5,10,1,'#aeb9d2');R(x,y+2,10,1,col);
+ if(dir!=='u'){const vx=dir==='l'?x:dir==='r'?x+5:x+2,vw=dir==='d'?6:5;R(vx,y+3,vw,3,'#10283f');R(vx+1,y+3,1,1,'#fff')}}
+function person(px,py,col,dir,fr,sleep){astro(px,py,col,dir,fr,sleep)}
+function astro(px,py,col,dir,fr,sleep){const x=Math.round(px)+2,y=Math.round(py)+1,w=fr&1,b=w?0:1,W='#e8edf7',G='#aeb9d2';R(x,y+14,12,2,'#00000055');
+ if(sleep){R(x-2,y+9,16,5,W);R(x+8,y+5,8,8,W);R(x+10,y+7,5,4,'#10283f');R(x-2,y+9,6,5,col);TX('z',x+12,y-2-Math.sin(t0*3)*2,C.cy,8);TX('z',x+17,y-8-Math.sin(t0*3+1)*2,C.cy,8);return}
+ R(x+3,y+12+(w?1:0),3,3,G);R(x+7,y+12+(w?0:1),3,3,G);R(x+3,y+14+(w?1:0),3,1,col);R(x+7,y+14+(w?0:1),3,1,col);
+ R(x+2,y+7+b,8,6,W);R(x+4,y+9+b,4,2,col);R(x+1,y+8+b+(w?1:0),2,4,W);R(x+9,y+8+b+(w?0:1),2,4,W);
+ if(dir==='u')R(x+2,y+7+b,8,6,G);else if(dir==='l')R(x+9,y+7+b,3,6,G);else if(dir==='r')R(x,y+7+b,3,6,G);
+ R(x+2,y+b,8,1,W);R(x+1,y+1+b,10,7,W);R(x+2,y+8+b,8,1,G);R(x+10,y+2+b,1,6,G);R(x+2,y+7+b,8,1,col);
+ if(dir!=='u'){const vx=dir==='l'?x+1:dir==='r'?x+5:x+2,vw=dir==='d'?8:6;R(vx,y+2+b,vw,5,'#10283f');R(vx+1,y+3+b,2,1,'#9fd8ff')}
+ R(x+5,y-2+b,2,2,col);R(x+5,y-3+b,2,1,Math.floor(t0*2)%2?C.am:'#7a5a1a')}
+function personOld(px,py,col,dir,fr,sleep){const x=Math.round(px)+3,y=Math.round(py)+1,w=fr&1;
+ if(sleep){R(x-2,y+8,13,5,'#3a4258');R(x-2,y+6,9,5,col);R(x+6,y+5,5,5,C.wt);TX('z',x+9,y-4-Math.sin(t0*3)*2,C.cy,8);return}
+ R(x+1,y+11+(w?1:0),3,3,'#222a40');R(x+6,y+11+(w?0:1),3,3,'#222a40');
+ R(x,y+5,10,7,col);if(dir==='u')R(x+1,y+6,8,5,'#00000033');
+ R(x+1,y,8,6,C.wt);R(x+1,y+1,8,1,col);
+ if(dir==='d')R(x+2,y+2,6,3,'#16304a');else if(dir==='l')R(x+1,y+2,4,3,'#16304a');else if(dir==='r')R(x+5,y+2,4,3,'#16304a')}
+function tile(ch,c,r){const x=c*T,y=r*T,h=hash(c,r);R(x,y,T,T,C.reg);
+ for(let i=0;i<5;i++){const q=hash(c*7+i,r*3+i);R(x+q%15,y+(q>>4)%15,1,1,i&1?C.sp:C.lt)}
+ if(ch==='#'){R(x,y,T,T,C.wall);R(x,y,T,3,C.wh);R(x,y+8,T,1,'#1d2640');R(x+((r&1)?4:10),y+3,1,5,'#1d2640')}
+ else if(ch==='f'||ch==='C'||ch==='D'){R(x,y,T,T,C.fl);R(x,y,T,1,'#242d48');R(x,y,1,T,'#242d48')}
+ if(ch==='D'){R(x,y,T,T,'#3a2a0c');R(x+2,y+2,12,12,'#1c2236');R(x+2,y+7,12,2,C.am);R(x+7,y+2,2,12,C.am);if(Math.floor(t0*2)%2)R(x+1,y+1,3,3,C.rd)}
+ if(ch==='C'){R(x+1,y+3,14,10,'#111a2e');R(x+3,y+5,10,5,Math.floor(t0*3)%5?'#0e3a4a':'#1a6a80');R(x+3,y+11,2,1,C.am);R(x+7,y+11,2,1,C.gr)}
+ if(ch==='S'){R(x,y+2,T,12,'#16305a');for(let i=0;i<4;i++)R(x+i*4,y+2,1,12,'#2b5aa0');R(x,y+8,T,1,'#2b5aa0');R(x,y+2,T,1,'#5a8ae0')}
+ if(ch==='B'){R(x+1,y+1,14,14,'#2a3048');R(x+2,y+2,12,5,'#171c2c');R(x+2,y+9,12,5,'#171c2c');R(x+11,y+4,2,2,(Math.floor(t0*2)+c)%3?C.gr:'#1c4a2c')}
+ if(ch==='R'){disc(x+8,y+9,6,'#3b4358');R(x+4,y+5,6,2,'#6a7490')}}
+function hud(){R(0,0,W,12,'#05070dcc');TX('NIGHT '+S.night,3,2,C.am,8);
+ [['P',S.p],['A',S.a],['S',S.s]].forEach((v,i)=>{TX(v[0],104+i*45,2,C.wt,8);bar(114+i*45,3,28,v[1])});
+ if(scene==='world'){const a=Math.min(1,dayT/DAY);R(70,2,26,1,'#3d4a70');disc(Math.round(71+a*24),Math.round(8-Math.sin(a*Math.PI)*5),2,C.am)}}
+function drawWorld(){for(let r=0;r<10;r++)for(let c=0;c<15;c++)tile(MAP[r][c],c,r);
+ g.fillStyle='#2f3750';foot.forEach(f=>{g.fillRect(f.x,f.y,2,2);g.fillRect(f.x+3,f.y-3,2,2)});
+ const L=[];CREW.forEach(n=>{const k2=n.t<1?n.t:1,fx=n.c+(n.tc-n.c)*k2,fy=n.r+(n.tr-n.r)*k2;L.push({y:fy,f:()=>person(fx*T,fy*T,n.col,n.dir||'d',Math.floor(t0*6)&1&&n.t<1?1:0,n.sleep)})});
+ const m=pl.mv,px=pl.c+(pl.tc-pl.c)*m,py=pl.r+(pl.tr-pl.r)*m;
+ L.push({y:py,f:()=>person(px*T+(pl.bump>0?(pl.dir==='l'?-1:1):0),py*T,'#ffb84a',pl.dir,m>.5?1:0)});
+ roverDraw();L.sort((a,b)=>a.y-b.y).forEach(o=>o.f());puffs.forEach(p=>{p.x+=p.vx*.016;p.y+=p.vy*.016;p.l-=.016;R(p.x,p.y,2,2,'rgba(190,200,225,'+Math.max(0,p.l*1.6).toFixed(2)+')')});for(let i=puffs.length-1;i>=0;i--)if(puffs[i].l<=0)puffs.splice(i,1);
+ g.fillStyle='#b8c4e0';motes.forEach(o=>g.fillRect(Math.round(o.x),Math.round(o.y),1,1));
+ const dark=Math.max(0,(dayT/DAY-.55))*.9;if(dark>0){g.fillStyle='rgba(6,10,40,'+dark.toFixed(2)+')';g.fillRect(0,0,W,H)}{const kq=WXe().kp||0;if(kq>=4){g.globalAlpha=Math.min(.4,(kq-3)*.07);for(let i=0;i<6;i++)R(0,12+i*2+Math.sin(t0*1.5+i)*3,W,2,i%2?'#3fd68f':'#5ed3ff');g.globalAlpha=1}}
+ hud()}
+// ---------- dialogue ----------
+function say(a,after,who){dlg={P:pages(a),i:0,ch:0,after,who}}
+function dlgPress(){const L=dlg.P[dlg.i],tot=L.join('').length;if(dlg.ch<tot){dlg.ch=tot;return}
+ blip(660,.04);dlg.i++;dlg.ch=0;if(dlg.i>=dlg.P.length){const f=dlg.after;dlg=null;if(f)f()}}
+function drawDlg(){if(!dlg)return;const L=dlg.P[dlg.i];R(4,104,232,52,C.wt);R(6,106,228,48,'#0b1020');R(8,108,224,44,'#0b1020');
+ if(dlg.who){R(10,98,dlg.who.length*8+8,10,C.wt);R(11,99,dlg.who.length*8+6,10,'#1a2235');TX(dlg.who,14,100,C.am)}
+ let n=Math.floor(dlg.ch);L.forEach((s,i)=>{TX(s.slice(0,Math.max(0,n)),12,111+i*12,C.wt);n-=s.length});
+ if(dlg.ch>=L.join('').length&&Math.floor(t0*2.5)%2)tri(222,144,C.am,true)}
+// ---------- night / knock ----------
+const KN=[null,
+ {n:'MEI',ox:72,dose:28,dust:85,temp:-38,intro:"MEI (radio): Hey, it's Mei. Can you let me in? I'm... extremely dusty.",earth:"Moondust is sharp and sticky. Keep it out of the filters."},
+ {n:'RAVI',ox:17,dose:35,dust:20,temp:-52,glitch:1,fake:96,intro:"RAVI (radio): Duty Officer? My dose badge is screaming. But I feel fine?",earth:"Radiation can fool sensors. Cross-check before you act."},
+ {n:'ASHA',ox:58,dose:78,dust:30,temp:-61,intro:"ASHA (radio): Flare warning just came in. I'm at the door. Please hurry!",earth:"A solar particle event is under way. Shelter cuts the dose."}];
+function startNight(){k=Object.assign({wait:0,known:0,asked:0,checked:0,t:0,clk:0},KN[S.night]);if(S.night>3)k.dose=clamp(Math.round(k.dose*(.7+.3*RM())),5,99);kmenu=0;
+ tr={t:0,d:1,fn:()=>{scene='knock';shake=.5;[0,.14,.28].forEach(d=>setTimeout(()=>blip(95,.09,'triangle',.07),d*1000));
+  setTimeout(()=>say([wxLine(),k.intro],null,'RADIO'),700)}}}
+function genK(n){const r=mb(n*977),nm=['MEI','RAVI','ASHA','TOMAS'][Math.floor(r()*4)],dose=10+Math.floor(r()*80);return{n:nm,ox:15+Math.floor(r()*75),dose,dust:10+Math.floor(r()*80),temp:-30-Math.floor(r()*40),glitch:r()<.3?1:0,fake:Math.min(99,dose+40),intro:nm+" (radio): Night "+n+", Duty Officer. Knock knock. Can you read my suit?",earth:"Cross-check odd readings. One scary number can be a sensor glitch."}}
+for(let i=4;i<=14;i++)KN[i]=genK(i);
+const OPTS=['OPEN AIRLOCK','DUST-OFF','STORM SHELTER','ASK EARTH','CROSS-CHECK'];
+function fxs(f){return[f.p&&(f.p>0?'+':'')+f.p+' PWR',f.a&&(f.a>0?'+':'')+f.a+' AIR',f.s&&(f.s>0?'+':'')+f.s+' SHD'].filter(Boolean).join('  ')}
+function applyFx(f){const o={p:S.p,a:S.a,s:S.s};S.p=clamp(S.p+(f.p||0));S.a=clamp(S.a+(f.a||0));S.s=clamp(S.s+(f.s||0));
+ if(f.p)floats.push({t:'PWR '+(f.p>0?'+':'')+f.p,x:104,y:14,c:f.p>0?C.gr:C.rd,l:1.6});if(f.a)floats.push({t:'AIR '+(f.a>0?'+':'')+f.a,x:104,y:24,c:f.a>0?C.gr:C.rd,l:1.6});if(f.s)floats.push({t:'SHD '+(f.s>0?'+':'')+f.s,x:104,y:34,c:f.s>0?C.gr:C.rd,l:1.6})}
+function choose(i){if(k.wait>0)return;
+ if(i===4){if(k.checked)return say(["Already cross-checked. The readings agree now."]);k.checked=1;k.known=1;applyFx({p:-5});S.curious++;
+  return say(["You compare two instruments. Power -5.",k.glitch?"The dose badge was a sensor glitch! Real dose is "+k.dose+".":"Both instruments agree. The numbers are real."],null,'CHECK')}
+ if(i===3){if(k.asked)return say(["Earth already answered."]);k.asked=1;k.wait=2.6;applyFx({p:-3});S.curious++;blip(900,.2,'sine');return}
+ const f={p:0,a:0,s:0},tx=[];let del=null;
+ if(i===0){f.a-=8;tx.push("The airlock cycles. Hiss... clunk. Air -8.");
+  if(k.dust>60){tx.push(k.n+" tracks moondust across the floor.");del={t:"Moondust clogged the air filters.",f:{p:-12,a:-4,s:0}}}
+  if(k.ox<30){tx.push(k.n+" gulps air. Just in time!");S.safety++}
+  if(k.dose>60){f.s-=10;tx.push("Their suit is hot with radiation. The habitat takes a dose.");del={t:"The extra dose shows in the walls. Shielding needs repairs.",f:{p:-6,a:0,s:-8}}}}
+ if(i===1){f.p-=10;tx.push("Brushes and air jets blast off the dust. Power -10.");
+  if(k.ox<30){tx.push(k.n+"'s oxygen drops while waiting outside!");S.safety--;del={t:k.n+" needed a long recovery after running low on oxygen.",f:{p:-4,a:-12,s:0}}}else tx.push("The habitat stays clean.")}
+ if(i===2){f.p-=6;f.a-=5;f.s+=8;tx.push("Storm shelter: thick walls, shared air. Power -6, Air -5, Shield +8.");
+  if(k.dose>60){tx.push("The dose stops climbing. Good call.");S.safety++}
+  if(k.ox<30){tx.push("But their oxygen was low, and the shelter is tight...");S.safety--;del={t:k.n+" needed extra oxygen after the shelter.",f:{p:0,a:-10,s:0}}}}
+ const label=OPTS[i];S.dose=(S.dose||0)+(i===2?1:k.dose/10);applyFx(f);if(del)S.queue.push({due:S.night+1,t:del.t,f:del.f,label,n:S.night});
+ say(tx,()=>endNight(label),'RESULT')}
+function endNight(label){applyFx({p:-10,a:-6,s:-Math.round(4*RM())});
+ const dead=S.p<=0?'p':S.a<=0?'a':S.s<=0?'s':null;
+ const note=["Night "+S.night+" log: "+label.toLowerCase()+". Costs stay hidden until they don't.","The cold takes its share every night: Power -10, Air -6, Shield -"+Math.round(4*RM())+". Space weather: "+wxShort()+"."];const cs=CASES[S.night];if(cs){fg()[cs[0]]=1;note.push("CASE FILE: "+cs[0],"What really happened: "+cs[1],"Source: "+cs[2])}
+ say(note,()=>{if(dead||S.night>=14)return endGame(dead);S.night++;tr={t:0,d:1,fn:()=>{startDay();const q=S.queue.filter(x=>x.due===S.night);
+  if(q.length){flash=true;const x=q[0];S.queue=S.queue.filter(y=>y!==x);say(["FLASHBACK: Night "+x.n+". You chose "+x.label+".",x.t+" ("+fxs(x.f)+")"],()=>{flash=false;applyFx(x.f);say(["Day "+S.night+". Walk around, talk to the crew, then use the CONSOLE."])},'FLASHBACK')}
+  else say(["Day "+S.night+". Walk around, talk to the crew, then use the CONSOLE."])}}},'NIGHT LOG')}
+function updKnock(dt){k.t+=dt;if(k.wait>0&&!dlg){k.wait-=dt;if(k.wait<=0){k.wait=0;say(["MISSION CONTROL (1.3 s each way): "+k.earth],null,'EARTH')}}
+ const rate=1+(k.known||!k.glitch?k.dose:k.fake)/12;if(Math.random()<rate*dt)blip(1400+Math.random()*400,.012,'sawtooth',.012)}
+function drawKnock(){R(0,0,W,H,'#05070d');
+ R(4,4,140,94,'#0b1a1c');g.save();g.beginPath();g.rect(4,4,140,94);g.clip();
+ const fl=(k.t<1&&Math.floor(k.t*4)%2)?.35:1;g.globalAlpha=fl;
+ R(40,10,64,88,'#16282c');R(46,16,52,82,'#0f1c20');R(46,56,52,2,C.am);R(71,16,2,82,C.am);
+ const sc=3,cx=62,cy=40;g.save();g.translate(51-cx*3,30-cy*3);g.scale(sc,sc);person(cx,cy,(KN[S.night].n==='MEI'?'#62d68f':KN[S.night].n==='RAVI'?'#5ed3ff':'#ff8a5b'),'d',Math.floor(k.t*3)&1);
+ g.restore();
+ for(let i=0;i<Math.floor(k.dust/6);i++){const q=hash(i,7);R(30+q%90,12+(q>>5)%80+((k.t*8)%3),1,1,'#9aa6c0')}
+ g.globalAlpha=1;for(let y=4;y<98;y+=2)R(4,y,140,1,'#00000040');
+ R(4,(k.t*40)%94+4,140,3,'#ffffff10');for(let i=0;i<20+Math.round((RM()-1)*50);i++)R(4+Math.random()*140,4+Math.random()*94,1,1,'#3a5a5a');
+ g.restore();R(8,8,6,6,Math.floor(k.t*2)%2?C.rd:'#401818');TX('CAM 1 AIRLOCK',17,7,C.gr,8);
+ const ss=14+Math.floor(k.t);TX('02:'+String(Math.floor(ss/60)+14).padStart(2,'0')+':'+String(ss%60).padStart(2,'0'),8,88,C.cy,8);
+ // suit card
+ R(148,4,88,62,C.wt);R(150,6,84,58,'#0b1020');TX(k.n,154,9,C.am,8);
+ const dv=(k.glitch&&!k.known)?k.fake+(Math.random()<.5?0:-3):k.dose;
+ const rows=[['O2',k.ox,k.ox<30?C.rd:C.gr],['DOSE'+((k.glitch&&!k.known)?'?':''),dv,dv>60?C.rd:C.gr],['DUST',k.dust,k.dust>60?C.am:C.gr]];
+ rows.forEach((r,i)=>{TX(r[0],154,22+i*11,C.wt,8);bar(190,23+i*11,40,r[1],r[2])});TX('TEMP '+k.temp+'C',154,55,C.cy,8);
+ TX('PWR',154,70,C.wt,8);bar(186,71,46,S.p);TX('AIR',154,80,C.wt,8);bar(186,81,46,S.a);TX('SHD',154,90,C.wt,8);bar(186,91,46,S.s);
+ // menu
+ R(4,104,232,52,C.wt);R(6,106,228,48,'#0b1020');
+ if(k.wait>0){TX('SIGNAL TRAVELLING...',12,112,C.cy,8);R(16,136,208,2,'#3d4a70');disc(Math.round(16+(1-Math.abs(1-(2.6-k.wait)/1.3))*208),137,3,C.am);TX('MOON',12,144,C.wt,8);TX('EARTH',184,144,C.wt,8)}
+ else OPTS.forEach((o,i)=>{const col=i<3?0:1,row=i<3?i:i-3,x=col?135:20,y=112+row*12;TX(o,x,y,(i===3&&k.asked||i===4&&k.checked)?'#566080':C.wt,8);if(i===kmenu&&Math.floor(t0*3)%3)tri(x-10,y,C.am)});
+ g.fillStyle='#b8c4e0';floats.forEach(f=>{});hud()}
+// ---------- endings ----------
+function endGame(dead){const a=(S.p+S.a+S.s)/3,mn=Math.min(S.p,S.a,S.s);let id;
+ if(dead==='p')id=['THE OPPORTUNITY ENDING','Power ran out and the base went quiet. In 2018 a global Mars dust storm blocked the Opportunity rover\'s sunlight and its mission ended.'];
+ else if(dead)id=['MISSION PAUSED','Resources ran out, so the crew was evacuated. Debrief: what would you trade next time?'];
+ else if(mn<25)id=['THE APOLLO 13 ENDING','The crew made it through on improvisation and rationing, like Apollo 13 in 1970.'];
+ else id=['SUNRISE AT THE POLE','The base survived the lunar night. Real landers face about 14 Earth days of darkness near minus 170 C.'];
+ S.ending=id;S.res=Math.round(a);tr={t:0,d:1,fn:()=>{scene='end'}};save()}
+function drawEnd(){R(0,0,W,H,'#05070d');stars.forEach(s=>R(s.x,s.y,1,1,(Math.floor(t0*2+s.p)%3)?C.wt:'#566080'));
+ const rise=S.ending[0].startsWith('SUNRISE');disc(120,170,100,rise?'#7a86a3':'#59627a');if(rise){const h=Math.min(1,t0/6);disc(120,Math.round(74-h*18),Math.round(6+h*2),C.am)}
+ TX(S.ending[0],120,8,C.am,8,'center');wrap(S.ending[1],28).forEach((s,i)=>TX(s,120,24+i*10,C.wt,8,'center'));
+ const sc=[['SAFETY',S.safety+3],['HONESTY',S.honesty+1],['CURIOSITY',S.curious],['RESILIENCE',S.res/10]];
+ sc.forEach((v,i)=>{TX(v[0],16,86+i*12,C.cy,8);bar(120,87+i*12,100,clamp(v[1]*20))});
+ TX('Demo: game values, not live data.',120,136,'#8693b3',8,'center');if(Math.floor(t0*2)%2)TX('PRESS Z TO REPLAY',120,146,C.am,8,'center')}
+// ---------- title ----------
+function drawTitle(){R(0,0,W,H,'#05070d');stars.forEach(s=>R(s.x,s.y,s.l,s.l,(Math.floor(t0*(1+s.l*.5)+s.p)%4)?C.wt:'#3d4a70'));
+ {const q=(t0*.35)%1;if(q<.12){const u=q/.12;R(20+u*120,10+u*40,6,1,'#fff');R(15+u*120,9+u*40,5,1,'#8693b3')}}const rot=t0*.8;for(let y=-14;y<=14;y++){const w=Math.floor(Math.sqrt(196-y*y));for(let x=-w;x<=w;x++){const l=Math.sin((x*.35+rot))*Math.sin(y*.3+1)>.45;g.fillStyle=l?(x<-4?'#2a6a3a':'#3a9a50'):(x<-4?'#1d4a90':'#2f6fd0');g.fillRect(196+x,34+y,1,1)}}
+ disc(120,230,134,'#59627a');disc(120,232,134,'#6b7690');[[40,112,8],[150,106,6],[210,120,10],[80,128,5],[180,140,7]].forEach(c=>{disc(c[0],c[1]+10,c[2],'#46506a')});
+ R(20,92,22,10,'#2b3550');R(20,92,22,2,'#3d4a70');if(Math.floor(t0*2)%2)R(30,95,2,2,C.rd);R(48,98,10,4,'#16305a');
+ const b=Math.round(Math.sin(t0*2));TX('NIGHT WATCH',122,20+b,'#000',16,'center');TX('NIGHT WATCH',120,18+b,C.am,16,'center');TX('OUTPOST ZERO',120,42+b,C.cy,12,'center');
+ const has=!!load();['NEW GAME','CONTINUE','IMPORT SAVE'].forEach((s,i)=>{const y=66+i*13;TX(s,120,y,i===1&&!has?'#566080':C.wt,8,'center');if(i===menu&&Math.floor(t0*3)%3)tri(70,y,C.am)});
+ TX('Z select  X back  M mute',120,148,'#8693b3',8,'center')}
+// ---------- input ----------
+function press(kk){if(tr)return;if(!AC)blip(1,.001);
+ if(dlg){if(kk==='a'||kk==='b')dlgPress();return}if(yn){if(kk==='u'||kk==='d'||kk==='l'||kk==='r'){yn.sel^=1;blip(520,.03)}if(kk==='a'){const f=yn.sel?yn.no:yn.yes;yn=null;blip(760,.05);if(f)f()}return}
+ if(scene==='title'){if(kk==='u'||kk==='d'){menu=(menu+(kk==='d'?1:2))%3;blip(520,.04)}if(kk==='a'){if(menu===2){document.getElementById('imp').click();return}const sv=load();
+   if(menu===1&&!sv){blip(120,.1);return}S=menu===1?sv:fresh();blip(880,.08);
+   tr={t:0,d:1,fn:()=>{if(menu===0)return startIntro();startDay();say([`Welcome back, Duty Officer.`,"Arrows move. Z talks and scans. X opens the menu and Field Guide. Find the CONSOLE in the habitat when ready."],null,'CMDR')}}}}
+ else if(scene==='world'){if(kk==='a')interact();if(kk==='b'){scene='menu';menu2=0;blip(700,.05)}}
+ else if(scene==='mini'){miniPress(kk)}
+ else if(scene==='menu'){if(kk==='u'||kk==='d'){menu2=(menu2+(kk==='d'?1:MENU.length-1))%MENU.length;blip(520,.03)}if(kk==='b')scene='world';if(kk==='a'){blip(760,.05);if(menu2===3){const ok=save();floats.push({t:ok?'SAVED':'SAVE FAILED',x:90,y:60,c:ok?C.gr:C.rd,l:1.8});scene='world'}else if(menu2===4){exportSave();scene='world'}else scene=['guide','pass','data','world','world'][menu2];gi=0}}
+ else if(scene==='guide'){const n=allG().length;if(kk==='u'||kk==='d'){gi=(gi+(kk==='d'?1:n-1))%n;blip(520,.03)}if(kk==='b')scene='menu'}
+ else if(scene==='pass'){if(kk==='a')printReport();if(kk==='b')scene='menu'}
+ else if(scene==='data'){if(kk==='b')scene='menu';if(kk==='a'){wxMode=(wxMode+1)%5;blip(660,.05)}}
+ else if(scene==='knock'){if(k.wait>0)return;if(kk==='u'||kk==='d'){kmenu=(kmenu+(kk==='d'?1:4))%5;blip(520,.03)}
+  if(kk==='l'||kk==='r'){kmenu=kmenu<3?Math.min(kmenu+3,4):kmenu-3;blip(480,.03)}if(kk==='a'){blip(760,.05);choose(kmenu)}}
+ else if(scene==='end'&&kk==='a'){S=fresh();menu=0;tr={t:0,d:1,fn:()=>{scene='title'}}}}
+const KM={ArrowUp:'u',w:'u',ArrowDown:'d',s:'d',ArrowLeft:'l',a:'l',ArrowRight:'r',d:'r',z:'a',Enter:'a',' ':'a',x:'b',Escape:'b'};
+addEventListener('keydown',e=>{if(e.key==='m'){muted=!muted;return}let kk=KM[e.key]||KM[e.key.toLowerCase()];if(!kk)return;e.preventDefault();
+ if(e.key==='a'||e.key==='s'||e.key==='w'||e.key==='d'){/* WASD for move, Z/Enter for A */}
+ if(e.repeat)return;held[kk]=1;press(kk)});
+addEventListener('keyup',e=>{const kk=KM[e.key]||KM[e.key.toLowerCase()];if(kk)held[kk]=0});
+document.querySelectorAll('#pad button').forEach(b=>{const kk=b.dataset.k;b.addEventListener('pointerdown',e=>{e.preventDefault();held[kk]=1;press(kk)});
+ ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{held[kk]=0}))});
+cv.addEventListener('pointerdown',e=>{if(scene==='title'||dlg||scene==='end')press('a')});
+// ---------- intro, yes/no, emergencies ----------
+let yn=null,nextInc=99,incDone=1,m=null,iT0=0;
+function ask(q,yes,no){yn={q,sel:0,yes,no}}
+function drawYN(){if(!yn)return;box(36,48,168,62);wrap(yn.q,19).slice(0,3).forEach((s,i)=>TX(s,44,55+i*10,C.wt,8));[['YES',84],['NO',148]].forEach((o,i)=>{TX(o[0],o[1],92,C.am,8);if(yn.sel===i&&Math.floor(t0*3)%3)tri(o[1]-10,92,C.am)})}
+function startIntro(){scene='intro';iT0=t0;say([`Near the Moon's south pole, the Sun barely climbs above the horizon.`,`This is the region NASA's Artemis program is aiming for. Ice may hide in the permanent shadows.`,`A lunar night lasts about 14 Earth days. It drops to roughly minus 170 degrees, with no sunlight at all.`,`Outpost Zero has four crew and one Duty Officer on the night watch. That is you.`,`Power. Air. Shield. Every choice costs something. Good luck.`],()=>{tr={t:0,d:1,fn:()=>{startDay();say([`Arrows move. Z talks and scans. X opens the menu and Field Guide. Find the CONSOLE in the habitat when ready.`],null,'CMDR')}}},'OUTPOST ZERO')}
+function drawIntro(){const t=t0-iT0;R(0,0,W,H,'#05070d');stars.forEach(s=>R(s.x,s.y,s.l,s.l,(Math.floor(t0*2+s.p)%3)?C.wt:'#3d4a70'));disc(196,30,10,'#2f6fd0');disc(193,28,4,'#3a9a50');disc(120,230,134,'#59627a');disc(120,232,134,'#6b7690');
+ const ly=Math.min(80,-20+t*17),land=ly>=80;R(112,ly,16,10,'#cfd6e6');R(110,ly+10,20,2,'#8a94ac');R(110,ly+12,2,5,'#8a94ac');R(128,ly+12,2,5,'#8a94ac');R(114,ly-4,12,4,'#aeb9d2');R(119,ly-8,2,4,C.am);
+ if(!land&&Math.floor(t0*20)%2){R(117,ly+12,6,5+Math.random()*7,C.am);R(118,ly+12,4,3,'#fff')}else if(land&&t<9)for(let i=0;i<5;i++)R(100+i*10+Math.sin(t0*3+i)*2,96-(t-5.9)*4,3,2,'#9aa6c0');
+ if(t>6.5)CREW.forEach((n,i)=>{const k2=Math.min(1,(t-6.5)/3);person(120+(40+i*45-120)*k2-8,92,n.col,'d',k2<1?Math.floor(t0*6)&1:0)})}
+const INC=[['ROVER FAULT',`ALERT! Rover 1 stopped in the yard. A wheel motor is overheating!`,'wire',`There is no repair shop on the Moon, so crews plan spare parts and test before they drive.`],['DUST ON PANELS',`ALERT! Moondust is coating the solar panels. Power is dropping!`,'dust',`Dust on solar panels cuts power. A Mars dust storm ended the Opportunity rover mission in 2018.`],['AIR LEAK',`ALERT! Habitat pressure is falling slowly. Something has a tiny hole!`,'leak',`In 2018 a tiny hole on the ISS caused a slow pressure drop. Engineers read the sensor trends to find it.`],['DISH MISALIGNED',`ALERT! The comms dish drifted. We lost Earth!`,'align',`Radio takes about 1.3 seconds each way to reach Earth, so pointing the dish carefully matters.`]];
+const PEN=[{p:-8},{p:-12},{a:-12},{p:-4,s:-4}];
+function triggerInc(){let id=Math.floor(Math.random()*4);{const e=WXe();if((e.r>=1||(e.kp||0)>=5)&&Math.random()<.5)id=3};[0,.18,.36].forEach(d=>setTimeout(()=>blip(740,.1,'square',.05),d*1000));shake=.4;
+ say([INC[id][1]],()=>ask(`Drop everything and fix it now? (Costs daylight.)`,()=>startMini(id),()=>{applyFx(PEN[id]);S.safety--;say([`You ignored it. The problem got worse. `+fxs(PEN[id]),INC[id][3]],null,'LESSON')}),'ALARM')}
+function startMini(id){tr={t:0,d:1,fn:()=>{scene='mini';const ty=INC[id][2];m={id,ty,t:0,T:30,done:0,ready:false};
+ if(ty==='wire'){m.seq=Array.from({length:3},()=>'udlr'[Math.floor(Math.random()*4)]);m.ph=0;m.i=0;m.err=0;m.lit=null;m.s0=.8;m.T=70}
+ if(ty==='dust'){m.w=Array(18).fill(0);m.cx=0;m.cy=0;m.T=40}
+ if(ty==='leak'){m.hx=Math.floor(Math.random()*6);m.hy=Math.floor(Math.random()*4);m.cx=2;m.cy=1;m.pr=100;m.T=99;m.vis={}}
+ if(ty==='align'){m.x=0;m.d=1;m.v=50;m.hits=0;m.miss=0;m.zone=[80,130];m.T=50}}}}
+function miniEnd(win){if(m.done)return;m.done=1;const id=m.id,I=INC[id];tr={t:0,d:1,fn:()=>{scene='world';const was=m;if(win){dayT+=8;applyFx({p:-2});S.curious++;S.safety++;fg()[I[0]]=1;say([`REPAIRED! `+I[3]],null,'LESSON')}else{applyFx(PEN[id]);S.safety--;fg()[I[0]]=1;say([`Repair failed. `+fxs(PEN[id]),I[3]],null,'LESSON')}}}}
+function updMini(dt){if(!m.ready)return;m.t+=dt;const ty=m.ty;if(ty==='dust'||ty==='leak'){m.rp=(m.rp||0)-dt;if(m.rp<=0){const d=['u','d','l','r'].find(x=>held[x]);if(d){m.rp=.13;miniPress(d)}}}
+ if(ty==='wire'&&m.ph===0){const q=(m.t-m.s0)/.95;m.lit=q>=0&&q<m.seq.length&&q%1<.75?m.seq[Math.floor(q)]:null;if(q>=m.seq.length){m.ph=1;m.i=0;m.lit=null}}
+ if(ty==='dust'){const i=m.cy*6+m.cx;if(m.w[i]<1){m.w[i]=Math.min(1,m.w[i]+dt*3.5);if(Math.random()<.3)blip(900+m.w[i]*400,.02,'triangle',.015)}if(m.w.every(v=>v>=1))miniEnd(1)}
+ if(ty==='leak'){m.pr-=dt*1.6;const d=Math.abs(m.cx-m.hx)+Math.abs(m.cy-m.hy);m.vis[m.cy*6+m.cx]=d;if(Math.random()<(1-d/8)*dt*7)blip(500+(1-d/8)*700,.03,'sine',.03);if(m.pr<=0)miniEnd(0)}
+ if(ty==='align'){m.x+=m.d*m.v*dt;if(m.x>196){m.x=196;m.d=-1}if(m.x<0){m.x=0;m.d=1}}
+ if(m.t>m.T&&ty!=='leak')miniEnd(0)}
+function miniPress(kk){if(!m||m.done)return;if(!m.ready){if(kk==='a'){m.ready=true;m.t=0;blip(660,.08)}return}const ty=m.ty,mv=['u','d','l','r'].includes(kk);
+ if(ty==='wire'&&m.ph===1&&mv){m.fl=[kk,t0+.15];if(kk===m.seq[m.i]){m.i++;blip(500+m.i*80,.06);floats.push({t:'GOOD!',x:92,y:6,c:C.gr,l:.7});if(m.i>=m.seq.length)miniEnd(1)}else{m.err++;blip(100,.15,'sawtooth');m.i=0;if(m.err>=5)miniEnd(0);else{m.ph=0;m.s0=m.t+.5}}}
+ if(ty==='dust'&&mv){m.cx=clamp(m.cx+(kk==='r')-(kk==='l'),0,5);m.cy=clamp(m.cy+(kk==='d')-(kk==='u'),0,2);blip(420,.02)}
+ if(ty==='leak'){if(mv){m.cx=clamp(m.cx+(kk==='r')-(kk==='l'),0,5);m.cy=clamp(m.cy+(kk==='d')-(kk==='u'),0,3);blip(420,.02)}if(kk==='a'){if(m.cx===m.hx&&m.cy===m.hy){blip(900,.2,'sine');miniEnd(1)}else{m.pr-=5;blip(110,.15,'sawtooth')}}}
+ if(ty==='align'&&kk==='a'){if(m.x+2>=m.zone[0]&&m.x+2<=m.zone[1]){m.hits++;blip(880,.1,'sine');m.v+=12;floats.push({t:'NICE!',x:100,y:20,c:C.gr,l:.8});const w=50-m.hits*8,a=20+Math.random()*150;m.zone=[a,a+w];if(m.hits>=3)miniEnd(1)}else{m.miss++;blip(110,.15,'sawtooth');if(m.miss>=5)miniEnd(0)}}}
+function drawMini(){R(0,0,W,H,'#05070d');const I=INC[m.id],ty=m.ty;TX(I[0],8,4,C.rd,8);const rem=ty==='leak'?m.pr:Math.max(0,100*(1-m.t/m.T));bar(8,16,224,rem,rem>40?C.cy:C.rd);
+ if(ty==='wire'){const B={u:[100,30],l:[60,58],r:[140,58],d:[100,86]},ch={u:'^',l:'<',r:'>',d:'v'};for(const q in B){const on=m.lit===q||(m.fl&&m.fl[0]===q&&t0<m.fl[1]);box(B[q][0],B[q][1],40,24);if(on)R(B[q][0]+3,B[q][1]+3,34,18,C.am);TX(ch[q],B[q][0]+16,B[q][1]+8,on?'#000':C.wt,8)}
+ TX(m.ph?'REPEAT IT!':'WATCH...',120,118,C.cy,8,'center');for(let i=0;i<m.seq.length;i++)R(80+i*16,132,10,6,i<m.i&&m.ph?C.gr:'#3d4a70');TX('FAULTS '+m.err+'/5',120,144,C.rd,8,'center')}
+ if(ty==='dust'){for(let i=0;i<18;i++){const x=30+(i%6)*30,y=36+Math.floor(i/6)*28;R(x,y,28,26,'#16305a');R(x+13,y,2,26,'#2b5aa0');R(x,y+12,28,2,'#2b5aa0');if(m.w[i]<1){g.globalAlpha=.9*(1-m.w[i]);R(x,y,28,26,'#8a8f9e');g.globalAlpha=1}}
+ const x=30+m.cx*30,y=36+m.cy*28;R(x-1,y-1,30,2,C.am);R(x-1,y+25,30,2,C.am);R(x-1,y-1,2,28,C.am);R(x+27,y-1,2,28,C.am);TX('SWEEP OVER THE PANELS',120,128,C.cy,8,'center')}
+ if(ty==='leak'){for(let i=0;i<24;i++){const x=36+(i%6)*28,y=30+Math.floor(i/6)*22;const v=m.vis[i];R(x,y,26,20,v===undefined?'#16282c':v===0?'#a03030':v<=1?'#7a4a10':v<=3?'#40501a':'#103a40');R(x,y,26,1,'#2a4a50')}const x=36+m.cx*28,y=30+m.cy*22;R(x-1,y-1,28,2,C.am);R(x-1,y+19,28,2,C.am);R(x-1,y-1,2,22,C.am);R(x+25,y-1,2,22,C.am);
+ const d=Math.abs(m.cx-m.hx)+Math.abs(m.cy-m.hy);TX('LEAK SIGNAL',20,122,C.wt,8);bar(130,123,100,100*(1-d/8),C.am);TX('RED = HOT. Z TO PATCH',120,142,C.cy,8,'center')}
+ if(ty==='align'){R(20,70,200,12,'#16282c');R(20+m.zone[0],70,m.zone[1]-m.zone[0],12,C.gr);R(20+m.x,66,4,20,C.am);disc(120,40,12,'#2f6fd0');TX('HITS '+m.hits+'/3  MISSES '+m.miss+'/5',120,100,C.wt,8,'center');TX('PRESS Z IN THE GREEN',120,124,C.cy,8,'center')}
+ if(!m.ready){box(14,24,212,108);const H2={wire:['WATCH the arrows glow.','Then PRESS THEM in the','same order. Just 3!'],dust:['Moondust covers the','panels. MOVE the box','over each one to clean.'],leak:['A tiny hole! MOVE the box.','Tiles turn RED when you','are close. PRESS Z on it.'],align:['The dish drifted.','PRESS Z when the marker','is in the GREEN zone.']}[ty];TX('HOW TO FIX IT',120,30,C.am,8,'center');H2.forEach((s,i)=>TX(s,24,50+i*12,C.wt,8));if(Math.floor(t0*2)%2)TX('PRESS Z TO START',120,112,C.cy,8,'center')}}
+// ---------- save files + live space weather (NOAA SWPC) ----------
+let wxMode=0,WX={badge:'GAME VALUE',when:'NO LIVE DATA',pfu:null,s:0,kp:null,flare:null,r:0,wind:null,note:'No live feed reached. Numbers are game values.'};
+function exportSave(){const b=new Blob([JSON.stringify({v:2,at:Date.now(),S})],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='nightwatch-save.json';document.body.appendChild(a);a.click();a.remove();floats.push({t:'SAVE FILE READY',x:70,y:60,c:C.gr,l:2})}
+document.getElementById('imp').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const v=JSON.parse(r.result),q=v.S||v;if(typeof q.night!=='number')throw 0;localStorage.setItem('nw-save',JSON.stringify({v:2,at:Date.now(),S:Object.assign(fresh(),q)}));floats.push({t:'SAVE IMPORTED',x:70,y:60,c:C.gr,l:2.5})}catch(x){floats.push({t:'BAD SAVE FILE',x:70,y:60,c:C.rd,l:2.5})}};r.readAsText(f);e.target.value=''});
+const NOAA='https://services.swpc.noaa.gov';
+async function gj(u){const r=await fetch(NOAA+u,{signal:AbortSignal.timeout(6000)});if(!r.ok)throw 0;return r.json()}
+const sLv=p=>p>=1e5?5:p>=1e4?4:p>=1e3?3:p>=100?2:p>=10?1:0,rLv=f=>f>=2e-3?5:f>=1e-3?4:f>=1e-4?3:f>=5e-5?2:f>=1e-5?1:0;
+const fcls=f=>{const L=f>=1e-4?'X':f>=1e-5?'M':f>=1e-6?'C':f>=1e-7?'B':'A',b={X:1e-4,M:1e-5,C:1e-6,B:1e-7,A:1e-8}[L];return L+(f/b).toFixed(1)};
+function mkWx(o,badge,iso){const d=new Date(iso),p2=n=>String(n).padStart(2,'0');return{badge,when:badge==='LIVE'?p2(d.getUTCHours())+':'+p2(d.getUTCMinutes())+' UTC':d.toISOString().slice(0,10),pfu:o.pfu,s:o.pfu==null?0:sLv(o.pfu),kp:o.kp,flare:o.flux?fcls(o.flux):null,r:o.flux?rLv(o.flux):0,wind:o.wind,note:'Source: NOAA Space Weather Prediction Center, GOES satellites. Free, no key.'}}
+async function loadWx(){
+ try{const[p,k,x,w]=await Promise.allSettled([gj('/json/goes/primary/integral-protons-6-hour.json'),gj('/json/planetary_k_index_1m.json'),gj('/json/goes/primary/xrays-6-hour.json'),gj('/products/solar-wind/plasma-2-hour.json')]);
+ const o={pfu:null,kp:null,flux:null,wind:null};let t=0;
+ if(p.status==='fulfilled'){const a=p.value.filter(q=>q.energy==='>=10 MeV'),q=a[a.length-1];if(q){o.pfu=+q.flux;t=Date.parse(q.time_tag)||0}}
+ if(k.status==='fulfilled'){const q=k.value[k.value.length-1],v=Array.isArray(q)?q[1]:(q.estimated_kp??q.kp_index??q.kp);if(v!==null&&!isNaN(+v))o.kp=+v}
+ if(x.status==='fulfilled'){const a=x.value.filter(q=>String(q.energy).startsWith('0.1-0.8')),q=a[a.length-1];if(q)o.flux=+q.flux}
+ if(w.status==='fulfilled'&&Array.isArray(w.value)){const q=w.value[w.value.length-1];if(q&&!isNaN(+q[2]))o.wind=+q[2]}
+ if(o.pfu!=null||o.kp!=null){const fresh2=!t||Date.now()-t<7.2e6,iso=t?new Date(t).toISOString():new Date().toISOString();WX=mkWx(o,fresh2?'LIVE':'ARCHIVE',iso);try{localStorage.setItem('nw-wx',JSON.stringify({o,iso}))}catch(e){}return}}catch(e){}
+ try{const c=JSON.parse(localStorage.getItem('nw-wx')||'null');if(c){WX=mkWx(c.o,'ARCHIVE',c.iso);return}}catch(e){}
+ try{const r=await fetch('data/spaceweather.json');if(r.ok){const c=await r.json();WX=mkWx(c,'ARCHIVE',c.fetchedAt)}}catch(e){}}
+function WXe(){if(wxMode>0){const i=wxMode-1;return{badge:'SIMULATED',when:'NOT REAL',pfu:[10,100,1e3,1e4][i],s:i+1,kp:5+i,flare:['M1.0','M5.0','X1.0','X10'][i],r:i+1,wind:550+i*120,note:'Practice mode: these numbers are made up. Keep pressing Z to return to real data.'}}return WX}
+const RM=()=>{const e=WXe();return 1+.6*e.s+((e.kp||0)>=5?.3:0)};
+const wxShort=()=>{const e=WXe();return e.badge+' S'+e.s+' Kp '+(e.kp==null?'-':Math.round(e.kp))};
+function wxLine(){const e=WXe();return 'SPACE WEATHER ('+e.badge+'): '+(e.pfu==null?'no live data, game values tonight. ':'protons '+(+e.pfu).toFixed(1)+' pfu, S'+e.s+(e.kp==null?'':', Kp '+Math.round(e.kp))+'. ')+(e.s>=1?'Radiation storm! Shelter matters.':'Quiet sky. Dose stays low.')}
+function drawData(){R(0,0,W,H,'#05070d');const e=WXe();TX('SPACE WEATHER',8,4,C.am,8);R(160,2,74,11,e.badge==='LIVE'?'#14401f':'#3a2a0c');TX(e.badge.slice(0,9),164,4,e.badge==='LIVE'?C.gr:C.am,8);
+ [['PROTONS',e.pfu==null?'n/a':(+e.pfu).toFixed(2)+' pfu S'+e.s],['KP INDEX',e.kp==null?'n/a':(+e.kp).toFixed(1)],['FLARE',e.flare||'n/a'],['WIND',e.wind?Math.round(e.wind)+' km/s':'n/a'],['AS OF',e.when]].forEach((d,i)=>{TX(d[0],8,20+i*12,C.wt,8);TX(d[1],104,20+i*12,C.cy,8)});
+ TX('RADIATION x'+RM().toFixed(1),8,84,C.rd,8);wrap(e.note,28).forEach((q,i)=>TX(q,8,98+i*10,'#8693b3',8));TX('Z: mode  X: back',8,148,C.wt,8)}
+// ---------- menu screens ----------
+let menu2=0,gi=0;const MENU=['FIELD GUIDE','PASSPORT','SPACE WEATHER','SAVE GAME','EXPORT SAVE','BACK'];
+function box(x,y,w,h){R(x,y,w,h,C.wt);R(x+2,y+2,w-4,h-4,'#0b1020')}
+function drawMenu(){drawWorld();box(110,16,126,92);MENU.forEach((s,i)=>{TX(s,134,24+i*13,C.wt,8);if(i===menu2&&Math.floor(t0*3)%3)tri(124,24+i*13,C.am)})}
+function drawGuide(){R(0,0,W,H,'#05070d');const L=allG(),sn=fg();TX('FIELD GUIDE',8,4,C.am,8);TX(Object.keys(sn).length+'/'+L.length,196,4,C.cy,8);
+ const top=Math.max(0,Math.min(gi-4,L.length-9));for(let i=0;i<9&&top+i<L.length;i++){const nm=L[top+i],has=sn[nm];TX(has?nm.slice(0,12):'????????',18,18+i*10,has?C.wt:'#566080',8);if(top+i===gi)tri(8,18+i*10,C.am)}
+ box(124,16,112,100);const nm=L[gi];if(sn[nm]){wrap(entry(nm)[0],12).slice(0,10).forEach((s,i)=>TX(s,130,22+i*9,C.wt,8));TX(entry(nm)[1].slice(0,13),130,106,C.cy,8)}else{disc(180,60,18,'#1a2236');TX('?',176,56,'#566080',8)}TX('X: back',8,148,'#8693b3',8)}
+function drawPass(){R(0,0,W,H,'#05070d');box(6,6,228,148);TX('RADIATION PASSPORT',14,12,C.am,8);person(16,26,'#ffb84a','d',0);TX('DUTY OFFICER',44,30,C.wt,8);TX('NIGHT '+S.night+'/14',44,42,C.cy,8);TX('DOSE '+(S.dose||0).toFixed(1)+' game units',14,62,C.wt,8);
+ [['SAFETY',S.safety+3],['HONESTY',S.honesty+1],['CURIOSITY',S.curious],['RESILIENCE',(S.p+S.a+S.s)/30]].forEach((v,i)=>{TX(v[0],14,78+i*11,C.cy,8);bar(110,79+i*11,110,clamp(v[1]*20))});TX('Scans '+Object.keys(fg()).length+'/'+allG().length,14,126,C.wt,8);TX('Z: print  X: back',14,140,'#8693b3',8)}
+function drawDataOld(){R(0,0,W,H,'#05070d');TX('DATA SOURCES',8,4,C.am,8);[['NASA DONKI','solar flares'],['NOAA SWPC','proton flux'],['NASA OSDR','astro health'],['JPL HORIZONS','Mars delay'],['NASA IMAGES','photos'],['LRO MAPS','terrain']].forEach((d,i)=>{TX(d[0],8,18+i*13,C.wt,8);TX(d[1],110,18+i*13,'#8693b3',8);R(176,17+i*13,58,10,'#3a2a0c');TX('NOT LIVE',178,18+i*13,C.am,8)});
+ wrap('This demo cannot call live NASA feeds, so all numbers are GAME VALUES. Case Files are short summaries of public NASA, ISRO and CNSA missions.',28).forEach((s,i)=>TX(s,8,100+i*10,'#8693b3',8));TX('X: back',8,148,C.wt,8)}
+function printReport(){const sc=[['Safety',S.safety+3],['Honesty',S.honesty+1],['Curiosity',S.curious],['Resilience',(S.p+S.a+S.s)/30],['Science',Object.keys(fg()).length/3]].map(v=>[v[0],clamp(v[1]*20)/100]);
+ const ang=i=>-Math.PI/2+i*2*Math.PI/5,pts=sc.map((v,i)=>(150+Math.cos(ang(i))*120*v[1]).toFixed(1)+','+(150+Math.sin(ang(i))*120*v[1]).toFixed(1)).join(' '),lab=sc.map((v,i)=>'<text x="'+(150+Math.cos(ang(i))*140).toFixed(0)+'" y="'+(154+Math.sin(ang(i))*140).toFixed(0)+'" text-anchor="middle" font-size="12">'+v[0]+'</text>').join('');
+ document.getElementById('rep').innerHTML='<h1>Mission Report: Outpost Zero</h1><h2>'+(S.ending?S.ending[0]:'Night '+S.night+' of 14')+'</h2><p>Dose: '+(S.dose||0).toFixed(1)+' game units (not real units).</p><svg viewBox="-20 -10 340 320" width="340" height="320"><polygon points="'+pts+'" fill="#bbb" stroke="#000"/>'+[.25,.5,.75,1].map(f=>'<circle cx="150" cy="150" r="'+120*f+'" fill="none" stroke="#999"/>').join('')+lab+'</svg><p>Field Guide: '+Object.keys(fg()).length+'/'+allG().length+' entries.</p><p>Game values, not live NASA data.</p>';try{window.print()}catch(e){}}
+// ---------- loop ----------
+function frame(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;t0+=dt;
+ try{motes.forEach(o=>{o.x-=o.v*dt;o.y+=o.v*dt*.3;if(o.x<0)o.x=W;if(o.y>H)o.y=0});
+ if(dlg&&!tr){dlg.ch+=dt*40;if(Math.floor(dlg.ch)%3===0&&dlg.ch<dlg.P[dlg.i].join('').length&&Math.random()<.5)blip(300+(dlg.who?dlg.who.length*40:0),.02,'square',.015)}
+ if(!tr&&!dlg||tr){if(scene==='world'&&!tr)updWorld(dt);if(scene==='knock'&&!tr)updKnock(dt)}
+ else if(scene==='world'&&dlg&&dayT<DAY){/* paused */}
+ if(tr){tr.t+=dt*3.2*tr.d;if(tr.d===1&&tr.t>=1){tr.t=1;tr.d=-1;tr.fn()}else if(tr.d===-1&&tr.t<=0)tr=null}
+ if(scene==='mini'&&!tr&&!dlg)updMini(dt);floats=floats.filter(f=>(f.l-=dt)>0);
+ g.save();if(shake>0){shake-=dt;g.translate(Math.round((Math.random()-.5)*3),Math.round((Math.random()-.5)*3))}if(scene==='title')drawTitle();else if(scene==='world')drawWorld();else if(scene==='knock')drawKnock();else if(scene==='end')drawEnd();else if(scene==='menu')drawMenu();else if(scene==='mini')drawMini();else if(scene==='intro')drawIntro();else if(scene==='guide')drawGuide();else if(scene==='pass')drawPass();else if(scene==='data')drawData();
+ if(flash){g.fillStyle='rgba(170,115,60,.32)';g.fillRect(0,0,W,H);R(0,(t0*70)%H,W,4,'#ffffff18');TX('<< REWIND',150,16,C.am,8)}
+ floats.forEach(f=>TX(f.t,f.x+(scene==='knock'?60:0),f.y+(1.6-f.l)*-4+14,f.c,8));
+ drawDlg();drawYN();
+ if(tr){const f=Math.max(0,Math.min(1,tr.t));for(let i=0;i<8;i++)R(0,i*20,W,Math.ceil(20*f),'#000')}
+ g.restore()}catch(err){g.fillStyle='#300';g.fillRect(0,0,W,H);TX('ERROR: '+String(err.message).slice(0,60),4,4,'#fff',8);console.error(err)}
+ requestAnimationFrame(frame)}
+(document.fonts&&document.fonts.load?Promise.race([document.fonts.load('8px "Press Start 2P"'),new Promise(r=>setTimeout(r,1500))]):Promise.resolve()).then(()=>{loadWx();setInterval(loadWx,600000);requestAnimationFrame(frame)});
+})();
+</script><script>if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(()=>{});</script></body></html>
