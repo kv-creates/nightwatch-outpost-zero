@@ -69,40 +69,6 @@ No API key required! The game directly fetches public, CORS-enabled telemetry fr
 
 ---
 
-## 💻 Running the Game Locally
-
-1. Open a terminal or Command Prompt in this folder.
-2. Run the development server:
-   ```bash
-   python dev-server.py 8080
-   ```
-   *(Or standard python: `python -m http.server 8080`)*
-3. Open your browser to:
-   ```
-   http://localhost:8080
-   ```
-
----
-
-## 🌐 Deploying to Porkbun / GoDaddy Hosting
-
-1. **Claim Your Free Domain & Hosting**:
-   - Follow the NASA Space Apps Porkbun offer guide to register your mission domain and activate free web hosting.
-2. **Upload All Files**:
-   - In Porkbun / cPanel File Manager (or via FTP), open your website's root folder (`public_html` or `www`).
-   - Upload the contents of this repository (or extract `nightwatch-game.zip`):
-     - `index.html`
-     - `save.php`
-     - `sw.js`
-     - `manifest.webmanifest`
-     - `icon.svg`
-     - `fonts/`
-     - `data/`
-3. **Instant Launch**:
-   - Visit your new domain! Your game is live with full SSL, live NOAA space weather, and cloud saving without any login required!
-
----
-
 ## 📚 STEM & Educational Case Files
 Includes historical mission debriefs from **NASA**, **ISRO**, and **CNSA**:
 - **Apollo 17 (1972)**: Lunar dust adhesion and airlock decontamination.
