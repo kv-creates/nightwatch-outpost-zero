@@ -1,1 +1,8 @@
-{"fetchedAt": "2026-11-14T22:40:00Z", "pfu": 0.21726037561893463, "kp": null, "flux": null, "wind": null, "source": "NOAA SWPC GOES primary integral protons >=10 MeV, real reading from the team's own curl"}
+{
+  "fetchedAt": "2026-11-15T05:00:00.000Z",
+  "pfu": 0.22398710250854492,
+  "kp": 1.33,
+  "flux": 5.32644946815708e-7,
+  "wind": 365,
+  "alert": "ALERT: Type II Radio Emission"
+}

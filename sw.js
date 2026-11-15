@@ -1,5 +1,11 @@
-const C='nw-v1',A=['./','index.html','manifest.webmanifest','icon.svg','fonts/press-start-2p.woff2'];
+const C='nw-v2',A=['./','index.html','manifest.webmanifest','icon.svg','fonts/press-start-2p.woff2','data/spaceweather.json'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(A)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))));self.clients.claim()});
-self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(u.origin!==location.origin)return;
- e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(C).then(x=>x.put(e.request,c));return r}).catch(()=>caches.match(e.request)))});
+self.addEventListener('fetch',e=>{
+  const u=new URL(e.request.url);
+  if(u.origin!==location.origin||e.request.method!=='GET'||u.pathname.includes('save.php'))return;
+  e.respondWith(fetch(e.request).then(r=>{
+    if(r.status===200){const c=r.clone();caches.open(C).then(x=>x.put(e.request,c))}
+    return r;
+  }).catch(()=>caches.match(e.request)));
+});

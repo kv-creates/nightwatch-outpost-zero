@@ -1,29 +1,116 @@
-# Night Watch: Outpost Zero (NASA Space Apps 2026)
+# Night Watch: Outpost Zero
+### NASA Space Apps Challenge 2026 — *Build a Junior Astronaut Mission Trainer* (Ages 7–12)
 
-## Run it
-It is a plain website (no build step). On Windows, in this folder:
-    python -m http.server 8080      then open http://localhost:8080
-(or `npx serve`). Do not double-click index.html: offline mode and the snapshot need http.
+> **Outpost Zero** is an interactive, browser-playable lunar mission trainer that lets students manage a permanent lunar south-pole habitat (Artemis Base Camp). Players balance competing engineering trade-offs—life support, battery storage, radiation shielding, food production, and communication lag—experiencing firsthand the real constraints faced by NASA mission planners.
 
-## Put it online (free)
-Upload this folder to GitHub Pages, Netlify Drop or Cloudflare Pages. Keep the folder structure.
+---
 
-## Controls
-PC: arrows/WASD move, Z = interact, X = back / menu, M = mute. No on-screen pad on PC.
-Phone/tablet: the D-pad and Z (INTERACT) / X (BACK) buttons appear automatically.
+## 🎮 How to Play
 
-## Saving
-Autosaves in the browser (localStorage) at the start of every day. Menu (X) > SAVE GAME to save now,
-EXPORT SAVE downloads nightwatch-save.json, and IMPORT SAVE on the title screen loads it on another device.
-Private/incognito mode may block saving.
+### Controls
+- **PC / Chromebook / Mac**:
+  - **Move**: Arrow keys or `W` `A` `S` `D`
+  - **Interact / Select / Confirm**: `Z`, `Enter`, or `Spacebar`
+  - **Back / Menu / Field Guide**: `X` or `Escape`
+  - **Mute Audio**: `M`
+  *(No on-screen pad is displayed on PC, keeping the screen clean).*
 
-## Live data
-Real space weather from NOAA SWPC (GOES protons, Kp, X-rays, solar wind), no key needed, read live by the browser.
-Badge rules: LIVE = under 2 hours old, ARCHIVE = saved earlier (last good reading or data/spaceweather.json),
-GAME VALUE = nothing available. Menu > SPACE WEATHER, press Z to try SIMULATED storms (labelled not real).
-To keep the snapshot fresh: `node scripts/fetch-snapshots.mjs` or enable the included GitHub Action.
-The bundled snapshot is a real reading (2026-11-14 22:40 UTC) taken from the team's own check.
+- **Phone / Tablet (Touch Devices)**:
+  - Automatically displays a **Nintendo Handheld Controller**:
+    - **Left**: Classic D-Pad cross for smooth navigation.
+    - **Right**: Angled Action Buttons: **`Z` (INTERACT)** and **`X` (BACK / MENU)**.
+    - **Landscape Mode**: D-Pad and buttons automatically dock to the bottom corners for comfortable thumb play (like a Game Boy Advance / Nintendo Switch).
 
-## Still to verify before submitting
-Case File wording (NASA/ISRO/CNSA), Hindi/Marathi (not included yet), NASA DONKI/OSDR (not connected yet).
-Font: Press Start 2P (SIL OFL, see fonts/).
+---
+
+## 🚀 Key Features
+
+### 1. Interactive Real Outpost Habitat & Machines
+During daytime, the player (Duty Officer) explores the outpost and manages critical systems before nightfall:
+- **ECLSS Water Recycler (`W`)**: Simulates the ISS Water Recovery System, which recycles 98% of all moisture and urine into pure drinking water. Purging filters refreshes the air scrubbers.
+- **ECLSS Oxygen Generator (`O`)**: Splits water into breathable $O_2$ through electrolysis (like ISS OGA and Mars MOXIE). Players can toggle between **Balanced**, **Boost** (+Air, drains Power), and **Eco** (saves Power for cold nights).
+- **Hydroponic Greenhouse Bay (`G`)**: Simulates the NASA **Veggie** and **Advanced Plant Habitat (APH)**. Astronauts grow dwarf wheat and radishes to absorb $CO_2$, generate fresh $O_2$, and boost crew mental health.
+- **ISRU 3D Regolith Fabricator (`3`)**: In-Situ Resource Utilization workshop that 3D-prints spare rover gears and suit seal patches from lunar soil + binder. Printing an emergency kit during the day provides instant auto-repair protection during sudden emergencies!
+- **Bio-Dosimetry & Medical Station (`M`)**: Active crew radiation dosimetry monitoring cumulative radiation dose ($mSv$) and habitat hull shielding integrity.
+- **Central Night Console (`C`)**: Receives live NOAA space weather uplinks, monitors battery reserves, and initiates the 14-night freeze.
+
+### 2. Visually Clear, Accessible & Rewarding Minigames
+Each emergency features a high-contrast visual tutorial card (**"HOW TO FIX IT"**) and generous difficulty tuning designed for young players:
+- **Rover Motor Fault (Reboot Sequence)**:
+  - Big, vibrantly color-coded directional arrows (Up: Cyan, Down: Amber, Left: Purple, Right: Green).
+  - Clear 3-step sequence with musical chime audio feedback and generous 5-fault allowance.
+- **Dust on Solar Panels (Sweep & Wipe)**:
+  - Smooth vacuum/wiper cursor sweeps over 18 solar cells.
+  - Sparkling particle bursts as panels instantly turn from dusty gray to gleaming photovoltaic silicon!
+  - Clear progress bar counter (XX/18 Clean) with generous 50-second timer.
+- **Habitat Air Leak (Sonar Radar Locator)**:
+  - High-contrast hot/cold sonar heatmap grid. Visited tiles permanently color-code from Deep Blue (Cold) to Amber (Warm) to Blinking Red (Leak!).
+  - Sonar audio pings beep faster and higher as you get closer to the puncture.
+  - Big "PRESS Z TO SEAL" prompt with a satisfying pneumatic repair sound.
+- **Comms Dish Misaligned (Radio Lock)**:
+  - Broad green target zone with smooth pendulum sweep.
+  - Resonant harmonic audio tone and flashing "LOCKED ON! PRESS Z NOW!" prompt when in target zone.
+  - Teaches the real 1.3-second light-speed radio delay between Earth and the Moon.
+
+### 3. Real Live Space Weather (NOAA SWPC) & Environmental Simulation
+No API key required! The game directly fetches public, CORS-enabled telemetry from NOAA Space Weather Prediction Center (GOES-18 satellites):
+- **GOES-18 Integral Protons ($\ge 10\text{ MeV}$)**: Drives radiation dose calculations and camera sensor noise.
+- **Planetary Kp Index**: When geomagnetic activity reaches $\text{Kp} \ge 4$, realistic green and cyan polar aurora ribbons undulate across the night sky.
+- **Real-Time Solar Wind Speed ($\text{km/s}$)**: When solar wind exceeds $420\text{ km/s}$, electrostatic dust levitation particles float above crater ridges (replicating Apollo 17's real lunar horizon glow observations).
+- **Primary X-Ray Flares**: Measures solar flare strength (Classes A, B, C, M, X) affecting radio communications.
+- **Real-time NOAA Bulletins & Alerts**: Reads live space weather warnings directly into the nightly radio broadcast.
+
+### 4. Zero-Login Cloud Save System
+- **Outpost Call Sign**: Every mission is automatically assigned a memorable mission call sign (e.g. `ARTEMIS-409`, `ORION-812`).
+- **Dual Persistence**:
+  - Automatically saves to `localStorage` at the start of every day (100% offline-ready).
+  - Automatically syncs in the background to `save.php` on PHP web hosting.
+- **No Passwords or Accounts**: A student can start a game in a school classroom, write down their Call Sign, and click **LOAD CALL SIGN** on their home tablet or phone to immediately resume their outpost!
+
+---
+
+## 💻 Running the Game Locally
+
+1. Open a terminal or Command Prompt in this folder.
+2. Run the development server:
+   ```bash
+   python dev-server.py 8080
+   ```
+   *(Or standard python: `python -m http.server 8080`)*
+3. Open your browser to:
+   ```
+   http://localhost:8080
+   ```
+
+---
+
+## 🌐 Deploying to Porkbun / GoDaddy Hosting
+
+1. **Claim Your Free Domain & Hosting**:
+   - Follow the NASA Space Apps Porkbun offer guide to register your mission domain and activate free web hosting.
+2. **Upload All Files**:
+   - In Porkbun / cPanel File Manager (or via FTP), open your website's root folder (`public_html` or `www`).
+   - Upload the contents of this repository (or extract `nightwatch-game.zip`):
+     - `index.html`
+     - `save.php`
+     - `sw.js`
+     - `manifest.webmanifest`
+     - `icon.svg`
+     - `fonts/`
+     - `data/`
+3. **Instant Launch**:
+   - Visit your new domain! Your game is live with full SSL, live NOAA space weather, and cloud saving without any login required!
+
+---
+
+## 📚 STEM & Educational Case Files
+Includes historical mission debriefs from **NASA**, **ISRO**, and **CNSA**:
+- **Apollo 17 (1972)**: Lunar dust adhesion and airlock decontamination.
+- **Artemis I (2022)**: Radiation phantom dosimetry (Helga and Zohar).
+- **August 1972 Solar Storm**: SPE shelter timing between Apollo 16 and 17.
+- **Opportunity Rover (2018)**: Planetary dust storm battery starvation.
+- **Chandrayaan-3 (2023)**: Surviving the -170°C lunar polar night.
+- **Chang'e-4 (2019)**: Radioisotope thermal heating units on the lunar far side.
+- **ISS Soyuz Leak (2018)**: Acoustic ultrasound micro-puncture detection.
+- **Apollo 13 (1970)**: Power budgeting and lithium hydroxide scrubber adaptation.
+- **MOXIE (2021+)**: Mars atmospheric $CO_2$ to $O_2$ conversion.
