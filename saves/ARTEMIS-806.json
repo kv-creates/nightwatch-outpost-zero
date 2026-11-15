@@ -1,0 +1,69 @@
+{
+  "v": 2,
+  "callsign": "ARTEMIS-806",
+  "updated_at": "2026-11-15T05:38:20.892571Z",
+  "S": {
+    "night": 4,
+    "p": 16,
+    "a": 45,
+    "s": 29,
+    "safety": 3,
+    "honesty": 0,
+    "curious": 4,
+    "queue": [
+      {
+        "due": 4,
+        "t": "High exterior dose degraded base shielding.",
+        "f": {
+          "p": -6,
+          "a": 0,
+          "s": -8
+        },
+        "label": "OPEN AIRLOCK",
+        "n": 3
+      },
+      {
+        "due": 4,
+        "t": "High exterior dose degraded base shielding.",
+        "f": {
+          "p": -6,
+          "a": 0,
+          "s": -8
+        },
+        "label": "OPEN AIRLOCK",
+        "n": 3
+      }
+    ],
+    "talked": {
+      "MEI": 1,
+      "TOMAS": 1,
+      "ASHA": 1,
+      "RAVI": 1
+    },
+    "seen": {
+      "HAB FLOOR": 1,
+      "SOLAR PANEL": 1,
+      "CREW": 1,
+      "BATTERY BANK": 1,
+      "MOONDUST": 1,
+      "ROCK": 1,
+      "BIO DOSIMETER": 1,
+      "DUST ON PANELS": 1,
+      "GREENHOUSE": 1,
+      "COMMAND CONSOLE": 1,
+      "O2 GENERATOR": 1,
+      "3D FABRICATOR": 1,
+      "APOLLO 17 (1972)": 1,
+      "DISH MISALIGNED": 1,
+      "ARTEMIS I (2022)": 1,
+      "AUGUST 1972 STORM": 1
+    },
+    "dose": 20.1,
+    "callsign": "ARTEMIS-806",
+    "spareKit": 1,
+    "o2Mode": "BOOST",
+    "waterPurged": false,
+    "cropsTended": false,
+    "cloudSynced": true
+  }
+}

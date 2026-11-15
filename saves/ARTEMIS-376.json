@@ -1,0 +1,24 @@
+{
+  "v": 2,
+  "callsign": "ARTEMIS-376",
+  "updated_at": "2026-11-15T05:25:00.060289Z",
+  "S": {
+    "night": 1,
+    "p": 80,
+    "a": 80,
+    "s": 65,
+    "safety": 0,
+    "honesty": 0,
+    "curious": 0,
+    "queue": [],
+    "talked": {},
+    "seen": {},
+    "dose": 0,
+    "callsign": "ARTEMIS-376",
+    "spareKit": 0,
+    "o2Mode": "BALANCED",
+    "waterPurged": false,
+    "cropsTended": false,
+    "cloudSynced": false
+  }
+}
