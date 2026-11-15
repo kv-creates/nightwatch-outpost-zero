@@ -1,8 +1,8 @@
 {
-  "fetchedAt": "2026-11-15T05:00:00.000Z",
-  "pfu": 0.22398710250854492,
-  "kp": 1.33,
-  "flux": 5.32644946815708e-7,
-  "wind": 365,
-  "alert": "ALERT: Type II Radio Emission"
+  "fetchedAt": "2026-11-15T11:30:00.000Z",
+  "pfu": 0.23003964126110077,
+  "kp": 0.67,
+  "flux": 5.247443368716631e-7,
+  "wind": 354,
+  "alert": "CONTINUED ALERT: Electron 2MeV Integral Flux exceeded 1,000p"
 }
