@@ -1,8 +1,8 @@
 {
-  "fetchedAt": "2026-11-18T02:50:00.000Z",
-  "pfu": 0.3352630138397217,
-  "kp": 3.33,
-  "flux": 0.0000014228601230570348,
-  "wind": 376,
-  "alert": "CONTINUED ALERT: Electron 2MeV Integral Flux exceeded 1,000p"
+  "fetchedAt": "2026-11-18T11:15:00.000Z",
+  "pfu": 0.28610360622406006,
+  "kp": 2,
+  "flux": 8.477869641865254e-7,
+  "wind": 407,
+  "alert": "WARNING: Geomagnetic K-index of 4 expected"
 }
