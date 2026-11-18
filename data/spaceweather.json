@@ -1,8 +1,8 @@
 {
-  "fetchedAt": "2026-11-17T21:00:00.000Z",
-  "pfu": 0.2322748601436615,
-  "kp": 0,
-  "flux": 8.846946570884029e-7,
-  "wind": 350,
+  "fetchedAt": "2026-11-18T02:50:00.000Z",
+  "pfu": 0.3352630138397217,
+  "kp": 3.33,
+  "flux": 0.0000014228601230570348,
+  "wind": 376,
   "alert": "CONTINUED ALERT: Electron 2MeV Integral Flux exceeded 1,000p"
 }
