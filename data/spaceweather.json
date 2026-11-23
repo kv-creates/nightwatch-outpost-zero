@@ -1,8 +1,8 @@
 {
-  "fetchedAt": "2026-11-23T00:50:00.000Z",
-  "pfu": 0.19317945837974548,
+  "fetchedAt": "2026-11-23T08:40:00.000Z",
+  "pfu": 0.23158249258995056,
   "kp": 0,
-  "flux": 1.91369267099617e-7,
+  "flux": 1.8970585813349317e-7,
   "wind": 320,
   "alert": "EXTENDED WARNING: Geomagnetic K-index of 4 expected"
 }
